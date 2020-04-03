@@ -2,9 +2,9 @@
 #include "glibr.h"
 
 // Adress
-#define adress_color_sensor 0x4B0       // same for every sensor
-#define data_adress_general 0xFE        // will talk to every sensor
-#define data_adress_sensor  0x00        // Specific to each sensor (between 0x00 and 0xFD)    
+#define data_adress_sensor  0x00        // Specific to each sensor (between 0x00 and 0xFD)
+#define data_adress_general 0xFF        // will talk to every sensor
+#define adress_color_sensor 0x4B0       // CAN ID same for every sensor (only for CAN)
 
 // Request commands
 #define send_RGB       0x00
@@ -23,34 +23,30 @@
 #define LOW  0x00FF
 
 Serial USB_link(USBTX, USBRX);     // USB initialization
-
-PwmOut LED(D9);                   // LED initialization
-
+RawSerial tx(PA_9, NC);
+RawSerial rx(NC, PA_10);
 glibr capt1(D4,D5);                // I²C initialization : D4 = SDA ; D5 = SCL
-
 CAN can1(PA_11, PA_12);            // CAN initialization : PA_11 = RD ; PA_12 = TD
-
+PwmOut LED(D9);                   // LED initialization
 
 CANMessage msg;
 
-RawSerial tx(PA_9, NC);
-RawSerial rx(NC, PA_10);
+
 
 bool initialization(void)
 {
-    //  USB initialization
+    // baud init
     USB_link.baud(115200);
     USB_link.printf("Debut prog\r\n");
-
-    // CAN initialization
     can1.frequency(1000000);
     rx.baud(115200);
+    tx.baud(115200);
     
-    // LED initialization
+    // LED init
     LED.period_ms(10);
     LED.write(0);
 
-    // Sensor initalization
+    // Sensor init
     if( (capt1.ginit()) && (capt1.enableLightSensor(true)) && (capt1.enableProximitySensor(true)) ) {
         return true;
     } else {
@@ -66,23 +62,23 @@ int main (void)
     char proximity_tresh = 250, color, state, message[8];           
     message[0] = data_adress_sensor; // (PID)
     
-    if (initialization())  USB_link.printf("Initialization complete \r\n");
-    else USB_link.printf("Error during initialization\r\n");
+    if (initialization()) USB_link.printf("Init finie \r\n");
+    else USB_link.printf("Erreur pendant l'init\r\n");
 
     while(1) {
-        //reading of every interesting values
+        /* acquisition capteurs */
         capt1.readRedLight(r);
         capt1.readGreenLight(g);
         capt1.readBlueLight(b);
         capt1.readProximity(a);
 
-        //calculation of color
+        /* calcul couleur */
         if (a<proximity_tresh) {
-            color = 0 ;  // 0 means no object being measured
+            color = 0 ;  // 0 Rien
         } else if (r > g ) {
-            color = 1 ;  // 1 means red
+            color = 1 ;  // 1 rouge
         } else {
-            color = 2 ;  // 2 means green
+            color = 2 ;  // 2 vert
         }
         
         // serial test :
@@ -97,7 +93,7 @@ int main (void)
         //diplay of color value
         //USB_link.printf("color : %hu \r\n", color);
         
-        // reading of the CAN bus
+        /* liaison CAN */
         if (can1.read(msg)) {
             
             //verification of the ID ( 0x4B0 ) and "soft" ID
