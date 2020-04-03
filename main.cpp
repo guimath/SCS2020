@@ -33,6 +33,7 @@ RawSerial tx(PA_9, NC);
 RawSerial rx(NC, PA_10);
 glibr capt1(D4,D5);// I²C initialization : D4 = SDA ; D5 = SCL
 CAN can(PA_11, PA_12);      
+PwmOut LED(D9);                   // LED initialization
 
 // Buffer CAN
 CANMessage canBuffer[CAN_MAX];
@@ -61,6 +62,9 @@ uint8_t a ;      // proximity value in 1 byte
 char proximity_tresh = 250, color;
 char state;
 
+bool initialization(void);
+/* Fonction initialisant les fréquence et le capteur APDS9960*/
+
 void srRead();
 /* Fonction récéptionnant la tramme serie
 et la stockant dans un buffer en attendant traitement */
@@ -77,6 +81,26 @@ void canRead();
 void canTraitement(const CANMessage &msg);
 /* Fonction traitant le message CAN reçu et repondant si besoin */
 
+bool initialization(void)
+{
+    // baud init
+    USB_link.baud(115200);
+    USB_link.printf("Debut prog\r\n");
+    can.frequency(1000000);
+    rx.baud(115200);
+    tx.baud(115200);
+    
+    // LED init
+    LED.period_ms(10);
+    LED.write(0);
+
+    // Sensor init
+    if( (capt1.ginit()) && (capt1.enableLightSensor(true)) && (capt1.enableProximitySensor(true)) ) {
+        return true;
+    } else {
+        return false;
+    }
+}
 
 void srRead()
 {
@@ -304,15 +328,13 @@ void envoiCAN(const CANMessage &msg)
 
 int main()
 {
-    can.frequency(1000000);
-    //rx.baud(115200);
-    //tx.baud(115200);
+    if (initialization()) USB_link.printf("Init finie \r\n");
+    else USB_link.printf("Erreur pendant l'init\r\n");
 
     if(SR==0) { // liaison CAN selectionné
         can.attach(canRead);
         // le premier octet est toujours pareil
         messageCAN[0] = data_adress_sensor;
-    
 
     } else if (SR==1) { // liaison Serie selectionnée
         rx.attach(&srRead); 
