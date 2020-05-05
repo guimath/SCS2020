@@ -372,5 +372,6 @@ int main()
         if (srRempli != srVide) { // si le buffer serie n'est pas vide
             srTraitement();          // traitement de la tramme sr
         }
+        color =0;
     }
 }
